@@ -1,6 +1,10 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://zwolfconsultancyservice-backend.onrender.com/api';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://zwolfconsultancyservice-backend.onrender.com/api';
+
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://zwolfconsultancy.com/api';
+
 
 export const blogApi = createApi({
   reducerPath: 'blogApi',
