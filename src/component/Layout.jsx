@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { PenTool, BookOpen, Plus, Home } from 'lucide-react';
+import { PenTool, BookOpen, Plus, Home, CalendarDays } from 'lucide-react';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -43,6 +43,19 @@ const Layout = ({ children }) => {
               >
                 <Plus className="h-4 w-4" />
                 <span>Create Post</span>
+              </Link>
+
+              {/* Appointment Nav Link */}
+              <Link
+                to="/appointment"
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/appointment') 
+                    ? 'bg-indigo-100 text-indigo-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                <CalendarDays className="h-4 w-4" />
+                <span>Appointment</span>
               </Link>
             </nav>
           </div>

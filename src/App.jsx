@@ -8,6 +8,7 @@ import BlogList from './component/BlogList';
 import BlogForm from './component/BlogForm';
 import BlogDetail from './component/BlogDetail';
 import './index.css';
+import AdminDashboard from './component/Appointmentpage/Admindashboard';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route path="/create" element={<BlogForm />} />
               <Route path="/edit/:id" element={<BlogForm />} />
               <Route path="/blog/:id" element={<BlogDetail />} />
+              <Route path="/appointment" element={<AdminDashboard />} />
             </Routes>
           </Layout>
           <Toaster 
