@@ -1,46 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Briefcase, X, Upload, Save } from 'lucide-react';
+import { Briefcase, X, Upload, Save, Loader2 } from 'lucide-react';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_URL = `${API_BASE_URL}/api/case-studies`;
 
 const emptyForm = {
   title: '',
   description: '',
-  image: '',
 };
-
-const slugify = (text) =>
-  text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-');
-
-// Convert uploaded file to base64 string
-const fileToBase64 = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
 const CaseStudyForm = () => {
   const [formData, setFormData] = useState(emptyForm);
+  const [imageFile, setImageFile] = useState(null); // actual File object to send
+  const [imagePreview, setImagePreview] = useState(''); // for showing preview (existing or new)
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
+  // Fetch existing case study data in edit mode
   useEffect(() => {
-    if (isEditMode) {
-      const stored = JSON.parse(localStorage.getItem('caseStudies') || '[]');
-      const existing = stored.find((cs) => String(cs.id) === String(id));
-      if (existing) {
-        setFormData({ ...emptyForm, ...existing });
+    if (!isEditMode) return;
+
+    const fetchCaseStudy = async () => {
+      setLoadingData(true);
+      try {
+        const res = await fetch(`${API_URL}/id/${id}`);
+        if (!res.ok) throw new Error('Failed to fetch case study');
+        const json = await res.json();
+        const cs = json.data;
+        setFormData({ title: cs.title || '', description: cs.description || '' });
+        setImagePreview(cs.image || '');
+      } catch (err) {
+        setFormError('Could not load case study details. Please try again.');
+      } finally {
+        setLoadingData(false);
       }
-    }
+    };
+
+    fetchCaseStudy();
   }, [id, isEditMode]);
 
   const handleChange = (e) => {
@@ -48,8 +51,8 @@ const CaseStudyForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle single image upload
-  const handleImageUpload = async (e) => {
+  // Handle image file selection (just preview locally, actual upload happens on submit)
+  const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -65,49 +68,65 @@ const CaseStudyForm = () => {
     }
 
     setError('');
-    setUploading(true);
-
-    try {
-      const base64 = await fileToBase64(file);
-      setFormData((prev) => ({ ...prev, image: base64 }));
-    } catch (err) {
-      setError('Failed to read image. Try again.');
-    } finally {
-      setUploading(false);
-    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const removeImage = () => {
-    setFormData((prev) => ({ ...prev, image: '' }));
+    setImageFile(null);
+    setImagePreview('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
 
-    const stored = JSON.parse(localStorage.getItem('caseStudies') || '[]');
+    // Image required only when creating (edit mode can keep old image)
+    if (!isEditMode && !imageFile) {
+      setError('Please upload an image.');
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
-      if (isEditMode) {
-        const updated = stored.map((cs) =>
-          String(cs.id) === String(id)
-            ? { ...formData, id, slug: slugify(formData.title) }
-            : cs
-        );
-        localStorage.setItem('caseStudies', JSON.stringify(updated));
-      } else {
-        const newEntry = {
-          ...formData,
-          id: Date.now().toString(),
-          slug: slugify(formData.title),
-        };
-        localStorage.setItem('caseStudies', JSON.stringify([...stored, newEntry]));
+      const payload = new FormData();
+      payload.append('title', formData.title);
+      payload.append('description', formData.description);
+      if (imageFile) {
+        payload.append('image', imageFile);
+      }
+
+      const url = isEditMode ? `${API_URL}/${id}` : API_URL;
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        body: payload, // don't set Content-Type manually, browser sets multipart boundary
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Something went wrong. Please try again.');
       }
 
       navigate('/case-study');
     } catch (err) {
-      alert('Storage limit exceeded. Try using a smaller image.');
+      setFormError(err.message || 'Failed to save case study.');
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  if (loadingData) {
+    return (
+      <div className="max-w-3xl mx-auto flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 text-indigo-600 animate-spin" />
+        <span className="ml-2 text-sm text-gray-500">Loading case study...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -123,6 +142,12 @@ const CaseStudyForm = () => {
           </p>
         </div>
       </div>
+
+      {formError && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-md">
+          {formError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
         {/* Title */}
@@ -160,13 +185,13 @@ const CaseStudyForm = () => {
         {/* Image */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Image <span className="text-red-500">*</span>
+            Image {!isEditMode && <span className="text-red-500">*</span>}
           </label>
 
-          {formData.image ? (
+          {imagePreview ? (
             <div className="relative group w-full sm:w-64">
               <img
-                src={formData.image}
+                src={imagePreview}
                 alt="Case study preview"
                 className="w-full h-40 object-cover rounded-md border border-gray-200"
               />
@@ -199,6 +224,9 @@ const CaseStudyForm = () => {
             </label>
           )}
           {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          {isEditMode && !imageFile && imagePreview && (
+            <p className="text-xs text-gray-400 mt-1">Leave as is to keep the current image, or upload a new one to replace it.</p>
+          )}
         </div>
 
         {/* Actions */}
@@ -206,16 +234,28 @@ const CaseStudyForm = () => {
           <button
             type="button"
             onClick={() => navigate('/case-study')}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            disabled={submitting}
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="inline-flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+            disabled={submitting}
+            className="inline-flex items-center space-x-2 bg-indigo-600 text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Save className="h-4 w-4" />
-            <span>{isEditMode ? 'Update Case Study' : 'Save Case Study'}</span>
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span>
+              {submitting
+                ? 'Saving...'
+                : isEditMode
+                ? 'Update Case Study'
+                : 'Save Case Study'}
+            </span>
           </button>
         </div>
       </form>

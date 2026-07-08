@@ -1,27 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Briefcase, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Briefcase, Search, Loader2 } from 'lucide-react';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_URL = `${API_BASE_URL}/api/case-studies`;
 
 const CaseStudyDashboard = () => {
   const [caseStudies, setCaseStudies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
   const navigate = useNavigate();
 
+  const fetchCaseStudies = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error('Failed to fetch case studies');
+      const json = await res.json();
+      setCaseStudies(json.data || []);
+    } catch (err) {
+      setError('Could not load case studies. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('caseStudies') || '[]');
-    setCaseStudies(stored);
+    fetchCaseStudies();
   }, []);
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this case study?')) return;
-    const updated = caseStudies.filter((cs) => cs.id !== id);
-    setCaseStudies(updated);
-    localStorage.setItem('caseStudies', JSON.stringify(updated));
+
+    setDeletingId(id);
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Failed to delete case study');
+      }
+
+      setCaseStudies((prev) => prev.filter((cs) => cs._id !== id));
+    } catch (err) {
+      alert(err.message || 'Failed to delete case study.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const filteredCaseStudies = caseStudies.filter((cs) =>
-    cs.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cs.client?.toLowerCase().includes(searchTerm.toLowerCase())
+    cs.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -50,15 +82,36 @@ const CaseStudyDashboard = () => {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by title or client..."
+          placeholder="Search by title..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         />
       </div>
 
+      {/* Error State */}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-md mb-6 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={fetchCaseStudies}
+            className="text-red-700 font-medium underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+          <Loader2 className="h-8 w-8 text-indigo-600 mx-auto mb-3 animate-spin" />
+          <p className="text-sm text-gray-500">Loading case studies...</p>
+        </div>
+      )}
+
       {/* Empty State */}
-      {filteredCaseStudies.length === 0 && (
+      {!loading && !error && filteredCaseStudies.length === 0 && (
         <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
           <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-gray-900 font-medium mb-1">No case studies found</h3>
@@ -78,26 +131,25 @@ const CaseStudyDashboard = () => {
       )}
 
       {/* Table */}
-      {filteredCaseStudies.length > 0 && (
+      {!loading && !error && filteredCaseStudies.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Case Study</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredCaseStudies.map((cs) => (
-                  <tr key={cs.id} className="hover:bg-gray-50">
+                  <tr key={cs._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
-                        {cs.thumbnail ? (
-                          <img src={cs.thumbnail} alt={cs.title} className="h-10 w-10 rounded-md object-cover" />
+                        {cs.image ? (
+                          <img src={cs.image} alt={cs.title} className="h-10 w-10 rounded-md object-cover" />
                         ) : (
                           <div className="h-10 w-10 rounded-md bg-gray-100 flex items-center justify-center">
                             <Briefcase className="h-5 w-5 text-gray-400" />
@@ -106,24 +158,30 @@ const CaseStudyDashboard = () => {
                         <span className="text-sm font-medium text-gray-900 max-w-xs truncate">{cs.title}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{cs.client}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{cs.industry}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{cs.year}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 max-w-sm truncate">{cs.description}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {cs.createdAt ? new Date(cs.createdAt).toLocaleDateString() : '-'}
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end space-x-2">
                         <button
-                          onClick={() => navigate(`/case-study/edit/${cs.id}`)}
+                          onClick={() => navigate(`/case-study/edit/${cs._id}`)}
                           className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                           aria-label="Edit"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(cs.id)}
-                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          onClick={() => handleDelete(cs._id)}
+                          disabled={deletingId === cs._id}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
                           aria-label="Delete"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {deletingId === cs._id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </td>
