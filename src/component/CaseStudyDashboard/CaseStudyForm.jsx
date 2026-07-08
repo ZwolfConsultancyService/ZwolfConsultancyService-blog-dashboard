@@ -10,6 +10,22 @@ const emptyForm = {
   description: '',
 };
 
+// Safely parse a fetch Response as JSON, even if body is empty or not valid JSON
+const safeParseResponse = async (res) => {
+  const rawText = await res.text();
+  if (!rawText) {
+    throw new Error(`Server returned an empty response (status ${res.status}).`);
+  }
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    console.error('Non-JSON response received:', rawText.slice(0, 500));
+    throw new Error(
+      `Server returned an unexpected response (status ${res.status}). Check backend logs.`
+    );
+  }
+};
+
 const CaseStudyForm = () => {
   const [formData, setFormData] = useState(emptyForm);
   const [imageFile, setImageFile] = useState(null); // actual File object to send
@@ -29,15 +45,20 @@ const CaseStudyForm = () => {
 
     const fetchCaseStudy = async () => {
       setLoadingData(true);
+      setFormError('');
       try {
         const res = await fetch(`${API_URL}/id/${id}`);
-        if (!res.ok) throw new Error('Failed to fetch case study');
-        const json = await res.json();
+        const json = await safeParseResponse(res);
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || `Failed to fetch case study (status ${res.status})`);
+        }
+
         const cs = json.data;
         setFormData({ title: cs.title || '', description: cs.description || '' });
         setImagePreview(cs.image || '');
       } catch (err) {
-        setFormError('Could not load case study details. Please try again.');
+        setFormError(err.message || 'Could not load case study details. Please try again.');
       } finally {
         setLoadingData(false);
       }
@@ -105,10 +126,10 @@ const CaseStudyForm = () => {
         body: payload, // don't set Content-Type manually, browser sets multipart boundary
       });
 
-      const json = await res.json();
+      const json = await safeParseResponse(res);
 
       if (!res.ok || !json.success) {
-        throw new Error(json.message || 'Something went wrong. Please try again.');
+        throw new Error(json.message || `Request failed with status ${res.status}`);
       }
 
       navigate('/case-study');
