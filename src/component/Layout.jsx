@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { PenTool, BookOpen, Plus, Home, CalendarDays } from 'lucide-react';
+import { PenTool, BookOpen, Plus, Home, CalendarDays, Briefcase } from 'lucide-react';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -56,6 +56,19 @@ const Layout = ({ children }) => {
               >
                 <CalendarDays className="h-4 w-4" />
                 <span>Appointment</span>
+              </Link>
+
+              {/* Case Study Nav Link */}
+              <Link
+                to="/case-study"
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/case-study') || location.pathname.startsWith('/case-study')
+                    ? 'bg-indigo-100 text-indigo-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                <Briefcase className="h-4 w-4" />
+                <span>Case Study</span>
               </Link>
             </nav>
           </div>
