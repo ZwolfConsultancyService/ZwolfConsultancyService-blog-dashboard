@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Briefcase, Search, Loader2 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// ⭐ Fallback added so API_BASE_URL never becomes "undefined" in production
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://zwolfconsultancyservice-backend.onrender.com';
 const API_URL = `${API_BASE_URL}/api/case-studies`;
 
 const CaseStudyDashboard = () => {
@@ -18,11 +19,24 @@ const CaseStudyDashboard = () => {
     setError('');
     try {
       const res = await fetch(API_URL);
-      if (!res.ok) throw new Error('Failed to fetch case studies');
-      const json = await res.json();
+      const rawText = await res.text();
+
+      let json;
+      try {
+        json = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        console.error('Non-JSON response received:', rawText.slice(0, 500));
+        throw new Error(`Server returned an unexpected response (status ${res.status}).`);
+      }
+
+      if (!res.ok) {
+        throw new Error(json.message || `Failed to fetch case studies (status ${res.status})`);
+      }
+
       setCaseStudies(json.data || []);
     } catch (err) {
-      setError('Could not load case studies. Please try again.');
+      console.error('fetchCaseStudies error:', err);
+      setError(err.message || 'Could not load case studies. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -38,7 +52,14 @@ const CaseStudyDashboard = () => {
     setDeletingId(id);
     try {
       const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-      const json = await res.json();
+      const rawText = await res.text();
+
+      let json;
+      try {
+        json = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        throw new Error(`Server returned an unexpected response (status ${res.status}).`);
+      }
 
       if (!res.ok || !json.success) {
         throw new Error(json.message || 'Failed to delete case study');
