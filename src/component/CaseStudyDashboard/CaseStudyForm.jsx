@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Briefcase, X, Upload, Save, Loader2 } from 'lucide-react';
 
-// ⭐ Fallback added so API_BASE_URL never becomes "undefined" in production
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://zwolfconsultancyservice-backend.onrender.com';
-const API_URL = `${API_BASE_URL}/api/case-studies`;
+const API_URL = 'https://www.zwolfconsultancy.com/api/case-studies';
 
 const emptyForm = {
   title: '',
