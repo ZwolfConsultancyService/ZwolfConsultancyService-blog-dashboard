@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import { Briefcase, X, Upload, Save, Loader2 } from 'lucide-react';
 
 const API_URL = 'https://www.zwolfconsultancy.com/api/case-studies';
@@ -25,6 +27,35 @@ const safeParseResponse = async (res) => {
   }
 };
 
+// Checks if the quill content is actually empty
+const isDescriptionEmpty = (html) => {
+  if (!html) return true;
+  const stripped = html.replace(/<[^>]*>/g, '').trim();
+  return stripped.length === 0;
+};
+
+// Simplified quill toolbar
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ script: 'sub' }, { script: 'super' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    ['blockquote', 'code-block'],
+    [{ color: [] }, { background: [] }],
+    [{ align: [] }],
+    ['link'],
+    ['clean'],
+  ],
+};
+
+const quillFormats = [
+  'header', 'bold', 'italic', 'underline', 'strike',
+  'list', 'bullet', 'script', 'indent', 'blockquote',
+  'code-block', 'color', 'background', 'align', 'link',
+];
+
 const CaseStudyForm = () => {
   const [formData, setFormData] = useState(emptyForm);
   const [imageFile, setImageFile] = useState(null); // actual File object to send
@@ -34,6 +65,7 @@ const CaseStudyForm = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState('');
   const [formError, setFormError] = useState('');
+  const [descriptionError, setDescriptionError] = useState('');
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
@@ -71,6 +103,14 @@ const CaseStudyForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Quill onChange handler
+  const handleDescriptionChange = (html) => {
+    setFormData((prev) => ({ ...prev, description: html }));
+    if (!isDescriptionEmpty(html)) {
+      setDescriptionError('');
+    }
+  };
+
   // Handle image file selection (just preview locally, actual upload happens on submit)
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
@@ -100,10 +140,17 @@ const CaseStudyForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    setDescriptionError('');
 
     // Image required only when creating (edit mode can keep old image)
     if (!isEditMode && !imageFile) {
       setError('Please upload an image.');
+      return;
+    }
+
+    // Description required
+    if (isDescriptionEmpty(formData.description)) {
+      setDescriptionError('Please write a description.');
       return;
     }
 
@@ -189,17 +236,20 @@ const CaseStudyForm = () => {
         {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Description <span className="text-red-500">*</span>
+            Content <span className="text-red-500">*</span>
           </label>
-          <textarea
-            name="description"
+          <ReactQuill
+            theme="snow"
             value={formData.description}
-            onChange={handleChange}
-            required
-            rows={5}
-            placeholder="Write the full case study description here..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+            onChange={handleDescriptionChange}
+            modules={quillModules}
+            formats={quillFormats}
+            className="bg-white"
+            style={{ minHeight: '200px' }}
           />
+          {descriptionError && (
+            <p className="text-xs text-red-500 mt-1">{descriptionError}</p>
+          )}
         </div>
 
         {/* Image */}

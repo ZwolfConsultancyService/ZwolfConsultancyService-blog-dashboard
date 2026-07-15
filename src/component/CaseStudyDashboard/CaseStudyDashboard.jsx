@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Briefcase, Search, Loader2 } from 'lucide-react';
+import { stripHtml } from './stripHtml'; // path apne project ke hisaab se adjust karo
 
 const API_URL = 'https://www.zwolfconsultancy.com/api/case-studies';
 
@@ -177,7 +178,9 @@ const CaseStudyDashboard = () => {
                         <span className="text-sm font-medium text-gray-900 max-w-xs truncate">{cs.title}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-sm truncate">{cs.description}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 max-w-sm truncate">
+                      {stripHtml(cs.description)}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {cs.createdAt ? new Date(cs.createdAt).toLocaleDateString() : '-'}
                     </td>
