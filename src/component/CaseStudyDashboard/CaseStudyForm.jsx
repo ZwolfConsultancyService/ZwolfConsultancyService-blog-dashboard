@@ -10,14 +10,17 @@ import {
   Loader2,
 } from "lucide-react";
 
-const API_URL =
-  "https://www.zwolfconsultancy.com/api/case-studies";
+import categories from "../category";
 
-// const API_URL = 'http://localhost:5002/api/case-studies';
+// const API_URL =
+//   "https://www.zwolfconsultancy.com/api/case-studies";
+
+const API_URL = "http://localhost:5002/api/case-studies";
 
 const emptyForm = {
   title: "",
   description: "",
+  categories: [],
 };
 
 // Safely parse response
@@ -45,15 +48,21 @@ const safeParseResponse = async (res) => {
 };
 
 // Check Quill content
+
 const isDescriptionEmpty = (html) => {
   if (!html) return true;
 
-  const stripped = html
-    .replace(/<[^>]*>/g, "")
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = html;
+
+  const text = tempDiv.textContent
+    ?.replace(/\u00a0/g, " ")
     .trim();
 
-  return stripped.length === 0;
+  return !text;
 };
+
+
 
 // Quill toolbar
 const quillModules = {
@@ -151,9 +160,29 @@ const CaseStudyForm = () => {
         setFormData({
           title: cs.title || "",
           description: cs.description || "",
+
+          // Existing selected categories
+          categories: Array.isArray(cs.categories)
+            ? cs.categories.map((category) => {
+                // If backend sends object
+                if (
+                  typeof category === "object" &&
+                  category !== null
+                ) {
+                  return (
+                    category._id ||
+                    category.id ||
+                    category.slug
+                  );
+                }
+
+                // If backend sends string
+                return category;
+              })
+            : [],
         });
 
-        // New multiple image structure
+        // Existing images
         setExistingImages(cs.images || []);
       } catch (err) {
         setFormError(
@@ -178,6 +207,47 @@ const CaseStudyForm = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  // ---------------------------------------------------------
+  // Multiple category selection
+  // ---------------------------------------------------------
+
+  const handleCategoryChange = (categoryId) => {
+    setFormData((prev) => {
+      const alreadySelected =
+        prev.categories.includes(categoryId);
+
+      if (alreadySelected) {
+        return {
+          ...prev,
+          categories: prev.categories.filter(
+            (id) => id !== categoryId
+          ),
+        };
+      }
+
+      return {
+        ...prev,
+        categories: [
+          ...prev.categories,
+          categoryId,
+        ],
+      };
+    });
+  };
+
+  // ---------------------------------------------------------
+  // Remove selected category
+  // ---------------------------------------------------------
+
+  const removeCategory = (categoryId) => {
+    setFormData((prev) => ({
+      ...prev,
+      categories: prev.categories.filter(
+        (id) => id !== categoryId
+      ),
     }));
   };
 
@@ -209,9 +279,8 @@ const CaseStudyForm = () => {
 
     setError("");
 
-    // Existing + new images
     const totalImages =
-      existingImages.length + files.length;
+      existingImages.length + imageFiles.length + files.length;
 
     if (totalImages > MAX_IMAGES) {
       setError(
@@ -222,7 +291,6 @@ const CaseStudyForm = () => {
       return;
     }
 
-    // Validate every image
     for (const file of files) {
       if (!file.type.startsWith("image/")) {
         setError(
@@ -246,13 +314,11 @@ const CaseStudyForm = () => {
       }
     }
 
-    // Add new files instead of replacing previous selection
     setImageFiles((prev) => [
       ...prev,
       ...files,
     ]);
 
-    // Generate previews
     const newPreviews = files.map((file) =>
       URL.createObjectURL(file)
     );
@@ -262,7 +328,6 @@ const CaseStudyForm = () => {
       ...newPreviews,
     ]);
 
-    // Reset input so same file can be selected again
     e.target.value = "";
   };
 
@@ -302,114 +367,159 @@ const CaseStudyForm = () => {
   // Submit
   // ---------------------------------------------------------
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
 
-    setFormError("");
-    setDescriptionError("");
-    setError("");
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    // Total images
-    const totalImages =
-      existingImages.length +
-      imageFiles.length;
+  // Clear previous errors
+  setFormError("");
+  setDescriptionError("");
+  setError("");
 
-    // Create requires at least one image
-    if (!isEditMode && totalImages === 0) {
-      setError(
-        "Please upload at least one image."
-      );
-      return;
-    }
+  // -----------------------------------------
+  // TITLE VALIDATION
+  // -----------------------------------------
+  const title = formData.title?.trim();
 
-    // Description required
-    if (
-      isDescriptionEmpty(
-        formData.description
-      )
-    ) {
-      setDescriptionError(
-        "Please write a description."
-      );
-      return;
-    }
+  if (!title) {
+    setFormError("Title is required.");
+    return;
+  }
 
-    setSubmitting(true);
+  if (title.length > 200) {
+    setFormError("Title cannot exceed 200 characters.");
+    return;
+  }
 
-    try {
-      const payload = new FormData();
+  // -----------------------------------------
+  // DESCRIPTION VALIDATION
+  // -----------------------------------------
+  if (isDescriptionEmpty(formData.description)) {
+    setDescriptionError("Please write a description.");
+    return;
+  }
 
+  // -----------------------------------------
+  // IMAGE VALIDATION
+  // -----------------------------------------
+  const totalImages =
+    existingImages.length + imageFiles.length;
+
+  if (!isEditMode && totalImages === 0) {
+    setError("Please upload at least one image.");
+    return;
+  }
+
+  if (totalImages > MAX_IMAGES) {
+    setError(
+      `You can have maximum ${MAX_IMAGES} images in one case study.`
+    );
+    return;
+  }
+
+  // -----------------------------------------
+  // CATEGORY VALIDATION / NORMALIZATION
+  // -----------------------------------------
+  const selectedCategories = Array.isArray(
+    formData.categories
+  )
+    ? formData.categories.filter(Boolean)
+    : [];
+
+  setSubmitting(true);
+
+  try {
+    const payload = new FormData();
+
+    // -----------------------------------------
+    // Basic fields
+    // -----------------------------------------
+    payload.append("title", title);
+
+    payload.append(
+      "description",
+      formData.description
+    );
+
+    // -----------------------------------------
+    // Categories
+    // IMPORTANT:
+    // Backend will JSON.parse this
+    // -----------------------------------------
+    payload.append(
+      "categories",
+      JSON.stringify(selectedCategories)
+    );
+
+    // -----------------------------------------
+    // New images
+    // -----------------------------------------
+    imageFiles.forEach((file) => {
+      payload.append("images", file);
+    });
+
+    // -----------------------------------------
+    // Existing images - EDIT ONLY
+    // -----------------------------------------
+    if (isEditMode) {
       payload.append(
-        "title",
-        formData.title
+        "existingImages",
+        JSON.stringify(existingImages)
       );
-
-      payload.append(
-        "description",
-        formData.description
-      );
-
-      // -----------------------------------------------------
-      // Upload newly selected images
-      // -----------------------------------------------------
-
-      imageFiles.forEach((file) => {
-        payload.append(
-          "images",
-          file
-        );
-      });
-
-      // -----------------------------------------------------
-      // IMPORTANT:
-      // Tell backend which existing images should remain
-      // -----------------------------------------------------
-
-      if (isEditMode) {
-        payload.append(
-          "existingImages",
-          JSON.stringify(existingImages)
-        );
-      }
-
-      const url = isEditMode
-        ? `${API_URL}/${id}`
-        : API_URL;
-
-      const method = isEditMode
-        ? "PUT"
-        : "POST";
-
-      const res = await fetch(url, {
-        method,
-        body: payload,
-      });
-
-      const json =
-        await safeParseResponse(res);
-
-      if (!res.ok || !json.success) {
-        throw new Error(
-          json.message ||
-            `Request failed with status ${res.status}`
-        );
-      }
-
-      // Cleanup previews
-      imagePreviews.forEach((preview) => {
-        URL.revokeObjectURL(preview);
-      });
-
-      navigate("/case-study");
-    } catch (err) {
-      setFormError(
-        err.message ||
-          "Failed to save case study."
-      );
-    } finally {
-      setSubmitting(false);
     }
-  };
+
+    // -----------------------------------------
+    // URL + METHOD
+    // -----------------------------------------
+    const url = isEditMode
+      ? `${API_URL}/${id}`
+      : API_URL;
+
+    const method = isEditMode
+      ? "PUT"
+      : "POST";
+
+    // -----------------------------------------
+    // API REQUEST
+    // -----------------------------------------
+    const res = await fetch(url, {
+      method,
+      body: payload,
+    });
+
+    const json = await safeParseResponse(res);
+
+    // -----------------------------------------
+    // BACKEND ERROR
+    // -----------------------------------------
+    if (!res.ok || !json.success) {
+      throw new Error(
+        json.message ||
+          `Request failed with status ${res.status}`
+      );
+    }
+
+    // -----------------------------------------
+    // SUCCESS
+    // -----------------------------------------
+    imagePreviews.forEach((preview) => {
+      URL.revokeObjectURL(preview);
+    });
+
+    navigate("/case-study");
+
+  } catch (err) {
+    console.error("CASE STUDY SUBMIT ERROR:", err);
+
+    setFormError(
+      err.message ||
+        "Failed to save case study. Please try again."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   // ---------------------------------------------------------
   // Loading state
@@ -486,6 +596,122 @@ const CaseStudyForm = () => {
             placeholder="e.g. Custom E-Commerce Website for UrbanStyle"
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
+
+        </div>
+
+        {/* Categories */}
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Categories
+          </label>
+
+          {/* Category Selection */}
+          <div className="border border-gray-300 rounded-md p-3">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+              {categories.map((category) => {
+
+                const isSelected =
+                  formData.categories.includes(
+                    category.id
+                  );
+
+                return (
+                  <label
+                    key={category.id}
+                    className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-indigo-50 border border-indigo-200"
+                        : "hover:bg-gray-50 border border-transparent"
+                    }`}
+                  >
+
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() =>
+                        handleCategoryChange(
+                          category.id
+                        )
+                      }
+                      className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                    />
+
+                    <span className="text-sm text-gray-700">
+                      {category.name}
+                    </span>
+
+                  </label>
+                );
+
+              })}
+
+            </div>
+
+          </div>
+
+          {/* Selected Categories */}
+          {formData.categories.length > 0 && (
+            <div className="mt-3">
+
+              <p className="text-xs font-medium text-gray-500 mb-2">
+                Selected Categories
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+
+                {formData.categories.map(
+                  (categoryId) => {
+
+                    const category =
+                      categories.find(
+                        (item) =>
+                          item.id === categoryId
+                      );
+
+                    return (
+                      <div
+                        key={categoryId}
+                        className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2.5 py-1 rounded-full text-sm"
+                      >
+
+                        <span>
+                          {category?.name ||
+                            categoryId}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeCategory(
+                              categoryId
+                            )
+                          }
+                          className="text-indigo-500 hover:text-red-600 transition-colors"
+                          aria-label={`Remove ${
+                            category?.name ||
+                            "category"
+                          }`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+
+                      </div>
+                    );
+
+                  }
+                )}
+
+              </div>
+
+            </div>
+          )}
+
+          <p className="text-xs text-gray-400 mt-2">
+            You can select multiple categories.
+          </p>
 
         </div>
 
