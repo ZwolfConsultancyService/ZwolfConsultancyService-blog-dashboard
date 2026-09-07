@@ -12,10 +12,10 @@ import {
 
 import categories from "../category";
 
-// const API_URL =
-//   "https://www.zwolfconsultancy.com/api/case-studies";
+const API_URL =
+  "https://www.zwolfconsultancy.com/api/case-studies";
 
-const API_URL = "http://localhost:5002/api/case-studies";
+// const API_URL = "http://localhost:5002/api/case-studies";
 
 const emptyForm = {
   title: "",
