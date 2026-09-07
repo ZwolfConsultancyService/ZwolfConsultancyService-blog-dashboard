@@ -492,22 +492,6 @@ const BlogDetail = () => {
           </div>
         )}
 
-        {/* Tags */}
-        {blog.tags && blog.tags.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Tags:</h3>
-            <div className="flex flex-wrap gap-2">
-              {blog.tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-gray-200">

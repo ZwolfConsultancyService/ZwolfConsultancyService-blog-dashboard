@@ -67,7 +67,7 @@ const BlogForm = () => {
       content: "",
       author: "",
       categories: [],
-      tags: [],
+      // tags: [],
     },
   });
 
@@ -693,57 +693,7 @@ const BlogForm = () => {
               TAGS
           ================================== */}
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tags
-            </label>
-
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) =>
-                setTagInput(
-                  e.target.value
-                )
-              }
-              onKeyDown={
-                handleAddTag
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Type a tag and press Enter..."
-            />
-
-            {watchedTags.length >
-              0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {watchedTags.map(
-                  (
-                    tag,
-                    index
-                  ) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-800"
-                    >
-                      {tag}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeTag(
-                            tag
-                          )
-                        }
-                        className="ml-2 text-indigo-600 hover:text-indigo-800"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  )
-                )}
-              </div>
-            )}
-          </div>
+       
 
           {/* ==================================
               IMAGE UPLOAD
